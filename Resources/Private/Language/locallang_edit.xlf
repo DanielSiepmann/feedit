@@ -46,6 +46,11 @@
 			<trans-unit id="edit_db_list" resname="edit_db_list">
 				<source>Web&gt;List module</source>
 			</trans-unit>
+			<trans-unit id="edit_disabled_explanation" resname="edit_disabled_explanation">
+				<source>Currently frontend editing does not work.
+					In order to active it, open the preview from TYPO3 backend.
+					This is a technical limitation.</source>
+			</trans-unit>
 		</body>
 	</file>
 </xliff>
