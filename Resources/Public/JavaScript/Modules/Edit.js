@@ -2,7 +2,7 @@
     // Merge context from opener into this window.
     // This allows opened popups to retrieve TYPO3 backend context.
     if (window.opener !== null) {
-        window.TYPO3 = Object.assign({}, window.opener.TYPO3, window.TYPO3);
+        window.TYPO3.settings = Object.assign({}, window.opener.TYPO3.settings, window.TYPO3.settings);
     }
 
     // Add closest implementation if missing.
@@ -18,16 +18,23 @@
     // Define public API
     // This can also be overwritten upfront by defining the same properties / functions.
     var publicApi = {
+        settings: {
+            mode: 'popup'
+        },
         openBackendHandler: function (event) {
             event.preventDefault();
-            var element = event.target;
 
+            var element = event.target;
             if (element.tagName !== 'A') {
                 element = element.closest('a.typo3-feedit-btn-openBackend');
             }
 
-            var vHWin = window.open(element.getAttribute('data-backendScript'), element.getAttribute('data-t3BeSitenameMd5'));
-            vHWin.focus();
+            if (window.TYPO3.Feedit.settings.mode === 'modal') {
+                internalApi.openBackendInModal(element);
+            } else {
+                internalApi.openBackendInWindow(element);
+            }
+
             return false;
         },
         submitFormHandler: function (event) {
@@ -56,6 +63,61 @@
     };
 
     var internalApi = {
+        openBackendInModal: function (element) {
+            if (typeof jQuery === 'undefined') {
+                console.error('jQuery is not defined, modal is therefore not possible, fallback to window.');
+                internalApi.openBackendInWindow(element);
+                return;
+            }
+
+            var $modal;
+            var iframe;
+            var url;
+
+            try {
+                url = new URL(element.getAttribute('data-backendScript'));
+            } catch (error) {
+                var currentUrl = new URL(document.URL);
+                url = new URL(currentUrl.origin + element.getAttribute('data-backendScript'));
+            }
+            url.searchParams.delete('returnUrl')
+
+            $modal = $(
+                '<div class="modal" id="feeditModal" tabindex="-1" data-keyboard="false" style="display: none">'
+                    + '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">'
+                        + '<div class="modal-content" style="width: 75vh; height: 75vh;">'
+                            + '<div class="modal-body">'
+                                + '<iframe height="100%" width="100%" frameBorder="0">'
+                            + '</div>'
+                        + '</div>'
+                    + '</div>'
+                + '</div>'
+            );
+            $('body').append($modal);
+
+            iframe = $modal.find('iframe:first')[0];
+            iframe.src = url.toString();
+            iframe.onload = function () {
+                iframe.contentWindow.TYPO3.FormEngine.preventExitIfNotSavedCallback = function () {
+                    $modal.modal('hide');
+                    $modal.remove();
+                    window.location.reload();
+                };
+            };
+
+            $modal.modal({
+                keyboard: false,
+                focus: true,
+                show: true
+            });
+        },
+        openBackendInWindow: function (element) {
+            var backendWindow = window.open(
+                element.getAttribute('data-backendScript'),
+                element.getAttribute('data-t3BeSitenameMd5')
+            );
+            backendWindow.focus();
+        },
         disableElement: function (element) {
             element.classList.add('disabled');
             var parentPanel = element.closest('.typo3-editPanel');
